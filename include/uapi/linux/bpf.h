@@ -6007,6 +6007,10 @@ union bpf_attr {
 	FN(user_ringbuf_drain, 209, ##ctx)		\
 	FN(cgrp_storage_get, 210, ##ctx)		\
 	FN(cgrp_storage_delete, 211, ##ctx)		\
+	FN(get_bpf_program_id, 212, ##ctx)			\
+	FN(insert_bpf_type, 213, ##ctx)			\
+	FN(get_list_of_types_to_be_checked, 214, ##ctx)			\
+	FN(remove_bpf_program_id, 215, ##ctx)			\
 	/* */
 
 /* backwards-compatibility macros for users of __BPF_FUNC_MAPPER that don't

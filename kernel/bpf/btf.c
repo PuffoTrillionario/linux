@@ -5813,6 +5813,11 @@ extern char __start_BTF[];
 extern char __stop_BTF[];
 extern struct btf *btf_vmlinux;
 
+void get_btf_range(void **start, void **end) {
+	*start = __start_BTF;
+	*end = __stop_BTF;
+}
+
 #define BPF_MAP_TYPE(_id, _ops)
 #define BPF_LINK_TYPE(_id, _name)
 static union {

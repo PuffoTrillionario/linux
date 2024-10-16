@@ -1940,6 +1940,14 @@ bpf_base_func_proto(enum bpf_func_id func_id, const struct bpf_prog *prog)
 		return &bpf_get_current_pid_tgid_proto;
 	case BPF_FUNC_get_ns_current_pid_tgid:
 		return &bpf_get_ns_current_pid_tgid_proto;
+	case BPF_FUNC_get_bpf_program_id:
+		return &get_bpf_program_id_proto;
+	case BPF_FUNC_insert_bpf_type:
+		return &insert_bpf_type_proto;
+	case BPF_FUNC_get_list_of_types_to_be_checked:
+		return &get_list_of_types_to_be_checked_proto;
+	case BPF_FUNC_remove_bpf_program_id:
+		return &remove_bpf_program_id_proto;
 	default:
 		break;
 	}
@@ -3147,3 +3155,112 @@ void *__bpf_dynptr_data_rw(const struct bpf_dynptr_kern *ptr, u32 len)
 		return NULL;
 	return (void *)__bpf_dynptr_data(ptr, len);
 }
+
+
+
+
+
+
+
+void *get_bpf_program_id_fn __rcu = NULL;
+void *insert_bpf_type_fn __rcu = NULL;
+void *get_list_of_types_to_be_checked_fn __rcu = NULL;
+void *remove_bpf_program_id_fn __rcu = NULL;
+
+/* Declare and initialize the SRCU struct */
+DEFINE_SRCU(bpf_program_srcu);
+void assign_function_ptr(void __rcu **target, void *func)
+{
+	rcu_assign_pointer(*target, func);
+	synchronize_srcu(&bpf_program_srcu);
+}
+BPF_CALL_1(get_bpf_program_id, unsigned int *, program_id)
+{
+	void *ptr;
+	int idx;
+	int ret = -1;
+	idx = srcu_read_lock(&bpf_program_srcu);
+	ptr = srcu_dereference(get_bpf_program_id_fn, &bpf_program_srcu);
+	if (ptr) {
+		int (*fun)(unsigned int *) = ptr;
+		ret = fun(program_id);
+	}
+	srcu_read_unlock(&bpf_program_srcu, idx);
+	return ret;
+}
+const struct bpf_func_proto get_bpf_program_id_proto = {
+	.func     = get_bpf_program_id,
+	.gpl_only = false,
+	.ret_type = RET_INTEGER,
+	.arg1_type = ARG_ANYTHING
+};
+BPF_CALL_3(insert_bpf_type, unsigned int, ebpf_program_id, void *, address, unsigned int, btf_type_id)
+{
+	void *ptr;
+	int idx;
+	int ret = -1;
+	idx = srcu_read_lock(&bpf_program_srcu);
+	ptr = srcu_dereference(insert_bpf_type_fn, &bpf_program_srcu);
+	if (ptr) {
+		int (*fun)(unsigned int, void *, unsigned int) = ptr;
+		ret = fun(ebpf_program_id, address, btf_type_id);
+	}
+	srcu_read_unlock(&bpf_program_srcu, idx);
+	return ret;
+}
+const struct bpf_func_proto insert_bpf_type_proto = {
+	.func     = insert_bpf_type,
+	.gpl_only = false,
+	.ret_type = RET_INTEGER,
+	.arg1_type = ARG_ANYTHING,
+	.arg2_type = ARG_ANYTHING,
+	.arg3_type = ARG_ANYTHING
+};
+
+BPF_CALL_4(get_list_of_types_to_be_checked,
+           unsigned int, ebpf_program_id,
+           void *, address,
+		   void*, btf_id_and_funptrs,
+		   unsigned int, num_elem) 
+{
+	int (*func)(unsigned int, void *, void *, unsigned int) = NULL;
+	int idx = srcu_read_lock(&bpf_program_srcu);
+	int ret = -1;
+	func = srcu_dereference(get_list_of_types_to_be_checked_fn, &bpf_program_srcu);
+	if (func) {
+		ret = func(ebpf_program_id, address, btf_id_and_funptrs, num_elem);
+	}
+	srcu_read_unlock(&bpf_program_srcu, idx);
+	
+	return ret;
+}
+const struct bpf_func_proto get_list_of_types_to_be_checked_proto = {
+	.func     = get_list_of_types_to_be_checked,
+	.gpl_only = false,
+	.ret_type = RET_INTEGER,
+	.arg1_type = ARG_ANYTHING, /* ebpf_program_id */
+	.arg2_type = ARG_ANYTHING, /* address (kernel-space pointer) */
+	.arg3_type = ARG_ANYTHING, /* res_v (user-space pointer) */
+	.arg4_type = ARG_ANYTHING, /* res_len (user-space pointer) */
+};
+
+BPF_CALL_1(remove_bpf_program_id, unsigned int, ebpf_program_id)
+{
+	void *ptr;
+	int idx;
+	int ret = -1;
+	idx = srcu_read_lock(&bpf_program_srcu);
+	ptr = srcu_dereference(remove_bpf_program_id_fn, &bpf_program_srcu);
+	if (ptr) {
+		int (*fun)(unsigned int) = ptr;
+		ret = fun(ebpf_program_id);
+	}
+	srcu_read_unlock(&bpf_program_srcu, idx);
+	return ret;
+}
+const struct bpf_func_proto remove_bpf_program_id_proto = {
+	.func     = remove_bpf_program_id,
+	.gpl_only = false,
+	.ret_type = RET_INTEGER,
+	.arg1_type = ARG_ANYTHING
+};
